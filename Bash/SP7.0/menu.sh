@@ -25,16 +25,12 @@ bisiesto() {
 }
 
 configurared() {
-	#Confrimamos que los parametros existen
-	if [[ -n $1 && -n $2 && -n $3 && -n $4 ]]; then
-	  echo "Introduciendo parámetros..."
-
-	else
-	  echo "Faltan parámetros por añadir"
-	exit
-	fi
-	#Introducimos los parametros en el archivo
-	cat <<EOF > /etc/netplan/50-cloud-init.yaml
+	        if [[ -z $1 && -z $2 && -z $3 && -z $4 ]]; then
+           echo "No has introducido alguno de los datos, vuelve a intentarlo."
+        else
+        rm /etc/netplan/50-cloud-init.yaml
+        sleep 1
+echo "
 network:
     ethernets:
         enp0s3:
@@ -46,19 +42,14 @@ network:
             nameservers:
              addresses: [$4]
     version: 2
-EOF
-	#Aplicamos la configuración
-	netplan apply
-	if [ $? -ne 0 ]; then
-	  echo "Las opciones proporcionadas no pueden ser aplicadas. Vuelva a intentarlo ejecutando el script"
-	exit
-	#Mostramos la configuración
-	else
-	  echo "==========================================================================="
-	  echo "La configuración ha sido modificada con exito. Se la muestro a continuación:"
-	  sleep 1
-	  ip a
-	fi
+" > /etc/netplan/50-cloud-init.yaml
+           netplan apply  2>/dev/null
+           echo "Aplicando la conexión...."
+           sleep 2
+           echo "Aquí puede ver la ip: "
+           ip a
+        fi
+
 }
 
 adivina() {
@@ -138,52 +129,44 @@ contar() {
 }
 
 privilegios() {
-	if [[ $EUID -eq 0 ]] ; then
-   	  echo "El usuario tiene privilegios administrativos (root)."
-	elif  groups | grep -qw "sudo"; then
-	  echo "El usuario tiene privilegios administrativos (sudo)."
+	usuario=$(whoami)
+	echo $usuario
+
+	if [ "$usuario" = "root" ]; then
+    	   echo "eres root, obvio que puedes"
+	elif groups $usuario | grep -q sudo; then
+    	   echo "El usuario $usuario tiene privilegios administrativos"
 	else
-    	  echo "El usuario no tiene privilegios administrativos."
+    	   echo "El usuario $usuario no tiene privilegios"
 	fi
 }
 
 octal() {
 	read -p "Seleccione la ruta absoluta de su directorio/archivo: (Ej:/home/raul/prueb.txt) " ruta
-	permisos=$(stat -c "%#a" "$ruta")
+	permisos=$(stat -c "%a" "$ruta")
 	echo "Los permisos de ruta son: "$permisos""
 }
 
 romano(){
-# Función para convertir un número a romano
-convertir_a_romano() {
-    local num=$1
-    local romano=""
-    
-    # Definir valores romanos y sus equivalencias
-    local valores=(100 90 50 40 10 9 5 4 1)
-    local simbolos=(C XC L XL X IX V IV I)
-    
-    for i in ${!valores[@]}; do
-        while (( num >= valores[i] )); do
-            romano+="${simbolos[i]}"
-            (( num -= valores[i] ))
+	read -p "Selecciona un número entre el 1-200: " num
+
+	if [[ "$num" -gt 200 || "$num" -lt 1 ]]; then
+    	  echo "El número $num no está entre el 1-200"
+	else
+    	  romano=""
+    	  # Arrays de valores y símbolos romanos
+    	  valores=(1000 900 500 400 100 90 50 40 10 9 5 4 1)
+    	  simbolos=("M" "CM" "D" "CD" "C" "XC" "L" "XL" "X" "IX" "V" "IV" "I")
+
+    	  for (( i=0; i<${#valores[@]}; i++ )); do
+            while (( num >= ${valores[i]} )); do
+              romano+="${simbolos[i]}"
+              (( num -= ${valores[i]} ))
         done
     done
-    
-    echo "$romano"
-}
 
-# Solicitar al usuario un número del 1 al 200
-read -p "Ingrese un número entre 1 y 200: " numero
-if (( numero < 1 || numero > 200 )); then
-    echo "Número fuera de rango. Intente nuevamente."
-    exit 1
+    echo "Número en romano: $romano"
 fi
-
-# Convertir el número a romano y mostrarlo
-resultado=$(convertir_a_romano $numero)
-echo "El número $numero en romano es: $resultado"
-
 }
 
 automatizar() {
@@ -263,44 +246,33 @@ reescribir() {
 }
 
 contusu(){
-  # Directorio donde se almacenarán las copias de seguridad
-BACKUP_DIR="/home/copiaseguridad"
+	usuarios=()
+        num=1
+        fecha=$(date +%Y-%m-%d)
 
-# Verificamos si el directorio de copias de seguridad existe, si no, lo creamos
-if [ ! -d "$BACKUP_DIR" ]; then
-    mkdir -p "$BACKUP_DIR"
-    echo "Directorio de copias de seguridad creado en: $BACKUP_DIR"
-fi
+        echo "Lista de usuarios en /home:"
+        for usuario in /home/*; do
+           usuario=$(basename "$usuario") # Obtiene solo el nombre del directorio
+           if id "$usuario" &>/dev/null; then # Verifica si es un usuario válido en /etc/pass>
+           usuarios+=("$usuario")
+           echo "$usuario"
+           fi
+        done
 
-# Listar usuarios reales (usuarios con directorio en /home)
-USUARIOS=($(ls /home))
+        read -p "Escoge un nombre de usuario del listado para crear una copia: " usu
 
-# Contar el número de usuarios reales
-NUM_USUARIOS=${#USUARIOS[@]}
+        if [ $(echo "${usuarios[*]}" | grep -ow $usu) ]; then
+           destino="/home/copiaseguridad/$usu"
+           sudo mkdir -p "$destino"
+           sudo tar -czvf "$destino/${usu}_${fecha}.tar.gz" "/home/$usu/"
+           echo "Copia de seguridad creada en $destino/${usu}_${fecha}.tar.gz"
+        else
+           echo "El usuario elegido no existe."
+        fi
 
-# Mostrar el número de usuarios reales en el sistema
-echo "Número de usuarios reales en el sistema: $NUM_USUARIOS"
-
-# Mostrar la lista de usuarios y permitir la selección
-echo "Lista de usuarios reales:"
-select USUARIO in "${USUARIOS[@]}"; do
-    if [ -n "$USUARIO" ]; then
-        # Obtener la fecha actual en formato YYYYMMDD
-        FECHA=$(date +%Y%m%d)
-        
-        # Definir el nombre del archivo de copia de seguridad
-        DESTINO="$BACKUP_DIR/${USUARIO}_${FECHA}.tar.gz"
-
-        # Crear la copia de seguridad del directorio del usuario seleccionado
-        tar -czf "$DESTINO" "/home/$USUARIO"
-
-        echo "Copia de seguridad de $USUARIO creada en: $DESTINO"
-        break
-    else
-        echo "Selección no válida, intenta nuevamente."
-    fi
-done
 }
+
+
 
 alumnos() {
 	read -p "Seleccione el números de alumnos de ADD: " alum
@@ -348,38 +320,21 @@ lineas() {
 
 }
 
-analizar() { 
-# Verifica si se ha proporcionado al menos un argumento (el directorio a analizar)
-  if [ $# -lt 1 ]; then
-    echo "Uso: $0 <directorio> [extensiones...]"
-    exit 1
-  fi
+analizar() {
+        dir="$1"
+        shift
+        doc=("$@")
 
-  # Almacena el primer argumento como el directorio base a analizar
-  dir_base=$1
+        if [ ! -d $dir ]; then
+            echo "El directorio no existe. "
+        else
+           for ext in ${doc[@]}; do
+                archivos=$(find $dir -type f -iname "*.$ext" 2>/dev/null)
+                contar=$(echo "$archivos" | wc -l)
+                echo "Extension $ext: $contar "
+           done
+        fi
 
-  # Verifica si el directorio existe y es un directorio
-  if [ ! -d "$dir_base" ]; then
-    echo "Error: $dir_base no es un directorio válido."
-    exit 1
-  fi
-
-# Muestra la cabecera del informe
-  echo "Informe de análisis para el directorio: $dir_base"
-  echo "----------------------------------------------------"
-
-  # Si no se pasan extensiones, contar todos los archivos
-  if [ $# -eq 1 ]; then
-    echo "No se especificaron extensiones. Se analizarán todos los archivos."
-    find "$dir_base" -type f | sed -n 's/.*\.\([a-zA-Z0-9]*\)$/\1/p' | sort | uniq -c
-  else
-    # Recorre las extensiones proporcionadas y cuenta los archivos de cada tipo
-    shift  # Elimina el primer argumento (directorio)
-    for ext in "$@"; do
-        count=$(find "$dir_base" -type f -name "*.$ext" | wc -l)
-        echo "Archivos .$ext encontrados: $count"
-    done
-  fi
 }
 
 
@@ -431,7 +386,7 @@ while [ $op != 0 ]; do
           8)contar;;
 	  9)privilegios;;
 	  10)octal;;
-#	  11)romano;;
+	  11)romano;;
           12)automatizar;;
 	  13)read -p "Seleccione el nombre del archivo: " nombre
 	     read -p "Seleccione el tamano del archivo en kb: " tamano
@@ -441,12 +396,13 @@ while [ $op != 0 ]; do
              crear_2 $nombre $tamano;;
 	  15)read -p "Seleccione la palabra que quiera reescribir: " palabra
 	     reescribir $palabra;;
-    16)contarusu;;
+          16)contarusu;;
 	  17)alumnos;;
 	  18)quita_blancos;;
 	  19)lineas;;
-    20)read -p "Selecciona el directorio: " dir
-	     analizar $dir;;
+	  20)read -p "Selecciona el directorio: " dir
+	     read -p "Selecciona el tipo de documento que quieres analizar: " doc
+	     analizar $dir $doc;;
 	  *) echo  "Opción no válida."
 	esac
 
