@@ -1,10 +1,5 @@
-#Imprimir la tabla de multiplicar de un número almacenado en una variable utilizando rangos. La
-#salida para el número 5 sería:
+num=int(input("Selecciona el número que quieras la tabla de multiplicar: "))
 
-numero = 5
-resultado = 0
-
-
-for i in range(1,11,1):
-    resultado = numero * i
-    print(numero,"*",i,"=",resultado)
+for i in range(1, 11):
+    mult=(i * num)
+    print(f"{num}x{i}={mult}")
