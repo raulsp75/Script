@@ -4,5 +4,5 @@ Este repositorio contiene diferentes scripts en varios lenguajes de programació
 📜 Bash → Scripts de automatización y administración de sistemas.
 🐍 Python → Scripts de programación y automatización de tareas.
 🔷 PowerShell → Scripts para administración de sistemas Windows.
-🎯 Objetivo
+                                🎯 Objetivo
 📌 Compartir y organizar mis scripts para facilitar el acceso y la reutilización.
